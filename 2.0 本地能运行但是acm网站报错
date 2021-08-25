@@ -1,18 +1,24 @@
+#include "stdio.h"
+
+//含有测试打印的代码 按需删除
+
 //队列
 template<class DATA>class PQUEUE {
-#define isempty (end-head==0)
-public:
-	PQUEUE() {
-		PQUEUE(64);
+	int isempty() {
+		if (end - head)return 0; return 1;
 	};
-	PQUEUE(int min = 64) {
+public:
+	PQUEUE<DATA>() {
+		PQUEUE<DATA>(64);
+	};
+	PQUEUE<DATA>(int min = 64) {
 		minl = min;
 		v = new DATA*[minl];
 		size = 64;
 		for (i = 0; i < size; i++)
 			v[i] = NULL;
 	};
-	~PQUEUE() {
+	~PQUEUE<DATA>() {
 		for (i = 0; i < size; i++)
 			v[i] = NULL;
 		delete[]v;
@@ -22,9 +28,9 @@ private:
 	//初始队列长度
 	int minl = 64;
 	//扩大/缩小队列的量
-	int changel = minl;
+	int changel = minl, shrinkl = minl / 4;
 	void movedatatoleft(DATA**dest, DATA**src) {
-		if (isempty)return;
+		if (isempty())return;
 		int size = end - head;
 		for (i = 0; i < size; i++) {
 			dest[i] = src[i + head];
@@ -34,8 +40,9 @@ private:
 	}
 	//先考虑缩小队列的可能性。缩小队列的时候总是缩小到minl+changel的一定倍数。
 	void changesize(int needmorespace = 1) {
-		int len = end - head + needmorespace, sizenew = (len - minl) / changel*changel + minl;
-		if (isempty)sizenew = minl;
+		int len = end + needmorespace; if (head >= shrinkl)len -= head;
+		int sizenew = (len - minl) / changel*changel + changel + minl;
+		if (isempty())sizenew = minl;
 		if (sizenew == size) {
 			movedatatoleft(v, v);
 			return;
@@ -54,35 +61,38 @@ public:
 	DATA**v = NULL;
 
 	void push(DATA* src) {
-		if (isempty) { head = 0; end = 0; }
+		if (isempty()) { head = 0; end = 0; }
 		if (end == size)changesize(1);
+		if (end > size)
+			scanf("%d", &j);
 		v[end] = src; end++;
 	}
 	DATA* pop() {
-		if (isempty)return NULL;
+		if (isempty())return NULL;
 		DATA*data = v[head];
 		v[head] = NULL; head++;
-		if (isempty)changesize(0);
+		if (isempty())changesize(0);
 		return data;
 	}
-#undef isempty
 };
 
 //有序链表 ord:0 链表首存放最低值 1 反之  key:需要重载 = < == 三个运算符
 template<class KEY,class DATA>class PLIST_WITH_ORD {
-#define isempty (head==NULL)
+	int isempty() {
+		if (head == NULL)return 1; return 0;
+	};
 public:
 	struct NOTE{
 		KEY key; DATA*data = NULL;
 		NOTE*next = NULL;
 	};
-	PLIST_WITH_ORD() {
+	PLIST_WITH_ORD<KEY,DATA>() {
 		PLIST_WITH_ORD(0);
 	}
-	PLIST_WITH_ORD(int ord = 0) {
+	PLIST_WITH_ORD<KEY, DATA>(int ord = 0) {
 		this->ord = ord;
 	};
-	~PLIST_WITH_ORD() {
+	~PLIST_WITH_ORD<KEY, DATA>() {
 		NOTE*temp = NULL;
 		while (head) {
 			temp = head;
@@ -103,7 +113,7 @@ private:
 public:
 	NOTE *head = NULL;
 	NOTE* search(KEY key) {
-		if (isempty)return NULL;
+		if (isempty())return NULL;
 		if (key < (head->key)^ord)return NULL;
 		NOTE*cur = head;
 		while (cur&&!(cur->key == key))cur = cur->next;
@@ -112,7 +122,7 @@ public:
 	//相同值会靠后延长
 	void push(KEY key, DATA*data) {
 		NOTE*temp = newnote(key, data);
-		if (isempty) {
+		if (isempty()) {
 			head = temp;
 			return;
 		}
@@ -127,42 +137,33 @@ public:
 		cur->next = temp;
 		return;
 	}
-	DATA* pop() {
-		DATA*data = NULL;
-		if (isempty) {
-			return NULL;
+	void pop() {
+		if (isempty()) {
+			return;
 		}
-		data = head->data; head->data = NULL;
-
+		head->data = NULL;
 		NOTE*temp = head; head = head->next;
-		delete temp;
-
-		return data;
+		delete temp; temp = NULL;
+		return;
 	}
-#undef isempty
 };
 
 //有序链表+队列
+
 #define qc QC<KEY,DATA>
 #define pqueue PQUEUE<DATA>
 #define plist PLIST_WITH_ORD<KEY, pqueue>
+
 template<class KEY, class DATA>class QC :plist {
 public:	
 	qc() : plist(0) {};
-	~qc() {
-		typename plist::NOTE*temp = plist::head;
-		while (temp) {
-			delete temp->data; temp->data = NULL;
-			temp = temp->next;
-		}
-	};
 	void push(KEY key, DATA*data) {
 		typename plist::NOTE* temp = plist::search(key);
 		if (temp) {
 			temp->data->push(data);
 			return;
 		}
-		pqueue*p = new pqueue;
+		pqueue*p = new pqueue(64);
 		p->push(data);
 		plist::push(key, p);
 		p = NULL; return;
@@ -203,6 +204,7 @@ public:
 
 
 };
+
 #undef qc
 #undef pqueue
 #undef plist
@@ -226,7 +228,7 @@ public:
 	int setcolor(int c) {
 		switch (value) {
 		case 1:color = c + 1; break;
-		case 2:color = c + 1 + 5; break;
+		case 2:color = c + 1; break;
 		default:return 0;
 		}
 		return 1;
@@ -249,7 +251,7 @@ public:
 		return;
 	}
 	void del() {
-		qc.~QC();
+		qc.~QC<int, CELL>();
 		for (i = 0; i < m; i++)delete[]cell[i];
 		delete[]cell;
 		return;
@@ -311,13 +313,14 @@ public:
 		switch (c->value)
 		{
 		case 0:printf("#"); break;
-		case 1:
-		case 2:printf("%d", c->color % 10); break;
-		case 3:printf("@"); break;
-		case 4:printf("@"); break;
+		case 1:printf("."); break;
+		case 2:printf("x"); break;
+		case 3:printf("0"); break;
+		case 4:printf("0"); break;
 		default:
 			break;
 		};
+		printf("|");
 		return;
 	}
 	void print() {
@@ -350,7 +353,7 @@ public:
 		cell[mini][minj].color = 2147480000;
 
 		CELL*now = NULL, *temp = NULL;
-		now = cell[mini] + minj;
+		now = cell[mini] + minj; 
 		map[mini][minj] = 'a';
 		while (cell[mini][minj].color>1) {
 			for (i = 1; i <= 4; i++) {
@@ -389,6 +392,7 @@ public:
 		}
 		return;
 	}
+
 	void inputformlogistic(double a, double x0, double wall, double x, int sx, int sy, int ex, int ey) {
 		double xnext;
 		for (i = 0; i < m; i++)for (j = 0; j < n; j++) {
@@ -410,18 +414,97 @@ int main() {
 	int m, n;
 	SOLVE sence;
 	int re;
-	while (~scanf("%d%d", &m, &n)) {
-		sence.newandset(m, n);
-		//sence.inputformscanf();
-		sence.inputformlogistic(3.868, 0.65, 0.84, 0.77, 1, 1, m - 3, n - 3);
-		re = sence.fun();
-		if (re > 0) {
-			printf("%d\n", re);
-			sence.printpath();
-		}
-		else printf("Poor ANGEL has to stay in the prison all his life.\n");
+	int fplot = 0;
+	if (0) {
+		while (~scanf("%d%d", &m, &n)) {
+			sence.newandset(m, n);
 
-		sence.del();
+			sence.inputformscanf();
+			re = sence.fun();
+			if (re > 0) {
+				printf("%d\n", re);
+				if (fplot)sence.printpath();
+			}
+			else printf("Poor ANGEL has to stay in the prison all his life.\n");
+			if (fplot)sence.print();
+
+			sence.del();
+		}
 	}
+
+
+	else if(1){
+		fplot = 1;
+		m = 109; n = 109; double a; char temp[8] = "";
+
+		while (1) {
+			int ia;
+			scanf("%d", &ia);
+				for (int it = 0; it < 8; it++)temp[it] = 0;
+				sprintf(temp, "3.%d", ia);
+				sscanf(temp, "%lf", &a);
+
+			double w = 0.84, w2;
+			int remax = 0; double wm = 0, wm2 = 0;
+			for (int iw = 750; iw < 1000; iw ++) {
+				for (int it = 0; it < 8; it++)temp[it] = 0;
+				sprintf(temp, "0.%d", iw);
+				sscanf(temp, "%lf", &w);
+				w2 = w - 0.07;
+				sence.newandset(m, n);
+				sence.inputformlogistic(a, 0.65, w, w2, 1, 1, m - 3, n - 3);
+				re = sence.fun();
+				if (remax < re)remax = re, wm = w, wm2 = w2;
+				sence.del();
+			}
+			w = wm, w2 = wm2;
+			sence.newandset(m, n);
+			sence.inputformlogistic(a, 0.65, w, w2, 1, 1, m - 3, n - 3);
+			re = sence.fun();
+			if (re > 0) {
+				printf("%d  a=%.3lf  w=%.3lf\n", re, a, w);
+				if (fplot) { sence.printpath(); sence.qc.printdata(); }
+			}
+			else printf("Poor ANGEL has to stay in the prison all his life.\n");
+			if (fplot)sence.print();
+			sence.del();
+		}
+	}
+	//！这里有发现2次运行结果存在不一致
+	else {
+		fplot = 1;
+		m = 109; n = 109; double a; char temp[8] = "";
+		
+		for (int ia = 600; ia < 1000; ia++) {
+			for (int it = 0; it < 8; it++)temp[it] = 0;
+			sprintf(temp, "3.%d", ia);
+			sscanf(temp, "%lf", &a);
+
+			double w = 0.84, w2;
+			int remax = 0; double wm = 0, wm2 = 0;
+			for (int iw = 750; iw < 1000; iw++) {
+				for (int it = 0; it < 8; it++)temp[it] = 0;
+				sprintf(temp, "0.%d", iw);
+				sscanf(temp, "%lf", &w);
+				w2 = w - 0.07;
+				sence.newandset(m, n);
+				sence.inputformlogistic(a, 0.65, w, w2, 1, 1, m - 3, n - 3);
+				re = sence.fun();
+				if (remax < re)remax = re, wm = w, wm2 = w2;
+				sence.del();
+			}
+			w = wm, w2 = wm2;
+			sence.newandset(m, n);
+			sence.inputformlogistic(a, 0.65, w, w2, 1, 1, m - 3, n - 3);
+			re = sence.fun();
+			if (re > 0) {
+				printf("%d  a=%.3lf  w=%.3lf\n", re, a, w);
+				if (fplot) { sence.printpath(); sence.qc.printdata(); }
+			}
+			else printf("Poor ANGEL has to stay in the prison all his life.\n");
+			if (fplot)sence.print();
+			sence.del();
+		}
+	};
 	return 0;
 };
