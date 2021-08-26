@@ -1,4 +1,4 @@
-#include "stdio.h"
+#include "stdio.h" 
 //循环队列
 template<class T>
 class QUEUE {
