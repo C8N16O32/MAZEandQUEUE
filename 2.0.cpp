@@ -6,7 +6,7 @@ class QUEUE {
 	//数据
 	T*v = NULL; int m_head = 0, m_end = 0, m_capacity = 0;
 	//调整幅度
-	int m_dc = 16, m_step = 16, m_shc = 0, m_dsh = 4;
+	int m_dc = 16, m_step = 16, m_shc = 0, m_dsh = 8;
 public:
 	//信息
 	bool isempty() { if (m_head == m_end)return 1; return 0; };
@@ -16,6 +16,7 @@ public:
 	void changesize(int newcapacity) {
 		int s1 = m_head, l1 = size(), s2 = 0, l2 = 0;
 		if (m_end > m_capacity) { l2 = m_end - m_capacity; l1 -= l2; };
+		//printf("changesize:%d[%d,%d) to %d[%d,%d) s1 %d l1 %d s2 %d l2 %d\n", m_capacity, m_head, m_end, newcapacity, 0, l1 + l2, s1, l1, s2, l2);
 		T*temp = new T[newcapacity]; int i;
 		for (i = s1; i < s1 + l1; i++)temp[i - s1] = v[i];
 		for (i = s2; i < s2 + l2; i++)temp[i - s2 + l1] = v[i];
@@ -25,7 +26,8 @@ public:
 	};
 	void checkcapa(int ns/*需要的额外空间数*/) {
 		int size = QUEUE::size() + ns;
-		size = ((size - m_dc) / m_step + 1)*m_step + m_dc;
+		if (size <= m_dc)size = m_dc;
+		else size = ((size - m_dc - 1) / m_step + 1)*m_step + m_dc;
 		if (size > m_capacity) { changesize(size); m_shc = m_dsh; return; };
 		if (m_shc) { m_shc--; return; };
 		if (size < m_capacity)changesize(size);
@@ -54,9 +56,8 @@ public:
 	};
 };
 
-
 //双向循环链表 (含有key)
-template<class T,typename K>
+template<class T, typename K>
 class LIST {
 public:
 	struct N {
@@ -72,19 +73,21 @@ public:
 	bool isempty() { if (m_size)return 0; return 1; };
 	int size() { return m_size; };
 	N*head() { return m_head; };
-	void sethead(N*newhead) { 
-		if (m_head == NULL) { 
-			m_size = 1; 
-			newhead->next = newhead; 
+	void sethead(N*newhead) {
+		if (m_head == NULL) {
+			m_size = 1;
+			newhead->next = newhead;
 			newhead->prev = newhead;
-		}; 
-		m_head = newhead; 
+		};
+		m_head = newhead;
 	};
 	//增查删
 	void insert(N *px, N *ppre = NULL) {
 		//首节点
 		if (ppre == NULL) {
 			m_head = px;
+			m_head->prev = m_head;
+			m_head->next = m_head;
 		}
 		//常规
 		else {
@@ -94,7 +97,7 @@ public:
 		};
 		m_size++;
 		return;
-	};	
+	};
 	N*search(K key) {
 		if (isempty())return NULL;
 		N *cur = m_head;
@@ -125,9 +128,8 @@ public:
 	};
 };
 
-
 //优先队列 (队列链表实现)
-template<class T>
+template<class T, typename K>
 class PRIQUE {
 public:
 	using Q = QUEUE<T>;
@@ -135,7 +137,7 @@ public:
 	using N = typename LIST<Q, int>::N;
 	void push(T &data, int count) {
 		auto push_queue = [&](N*note, T &data) {note->data.push_end(data); };
-		auto push_list=[&](T &data, int key) {
+		auto push_list = [&](T &data, int key) {
 			N *temp = new N;
 			temp->data.push_end(data); temp->key = key;
 			if (list.isempty()) { list.sethead(temp); return; };
@@ -148,13 +150,17 @@ public:
 			list.insert(temp, cur->prev);
 			if (i == 0 && cur == list.head())list.sethead(temp);
 		};
+
 		N*s = list.search(count);
 		if (s)push_queue(s, data);
 		else push_list(data, count);
 	};
-	T pop(int *emptyflag) {
-		T temp = { 0,0 }; *emptyflag = 0;
-		if (list.isempty()) { *emptyflag = 1; return temp; };
+	bool isempty() {
+		if (list.isempty())return 1; return 0;
+	};
+	//请使用isempty()提前检查
+	T pop() {
+		T temp;
 		Q&q = list.head()->data;
 		temp = q.head(); q.pop_head();
 		if (q.isempty())list.erase(list.head());
@@ -193,31 +199,35 @@ public:
 	using T = D;
 	//广度优先搜索涂色
 	int bfsmain(bool &issolved) {
+		//函数
 		auto around = [](int ord, T&cur)->T {static int offx[] = { 0,1,0,-1 }, offy[] = { -1,0,1,0 }; return{ offx[ord] + cur.x,offy[ord] + cur.y }; };
-		auto checkandmark = [&](T&temp, int countcur)->bool {if (temp.x < 0 || temp.x >= maze.n || temp.y < 0 || temp.y >= maze.m)return 0;
-		MAZE::CELL&cell = maze.v[temp.y][temp.x]; if (cell.ba_tag == 1 || cell.bf_tag == 1)return 0; cell.bf_tag = 1; cell.bf_count = countcur + cell.ba_cost; return 1; };
-		auto isstart = [&](T&temp)->bool {if (maze.v[temp.y][temp.x].ba_tag == 2)return 1; return 0; };
+		auto checkandmark = [&](T&temp, int countcur)->bool {
+			if (temp.x < 0 || temp.x >= maze.n || temp.y < 0 || temp.y >= maze.m)return 0;//超界
+			MAZE::CELL&cell = maze.v[temp.y][temp.x]; 
+			if (cell.ba_tag == 1 || cell.bf_tag == 1)return 0; //被标记为不能走
+			cell.bf_tag = 1; cell.bf_count = countcur + cell.ba_cost; //check通过 则更新标记信息
+			return 1; };
+		auto isstart = [&](T&temp)->bool {if (maze.v[temp.y][temp.x].ba_tag == 2)return 1; return 0; };//由于有多个起点 起点使用特殊方法标记
 		auto isend = [&](T&temp)->bool {if (temp.x == maze.end.x&&temp.y == maze.end.y)return 1; return 0; };
-		auto calcurcount = [&](T&cur) {MAZE::CELL&cell = maze.v[cur.y][cur.x]; return cell.bf_count; };
+		auto getcount = [&](T&cur) {MAZE::CELL&cell = maze.v[cur.y][cur.x]; return cell.bf_count; };
+		//广度优先搜索
 		issolved = 0;
-		PRIQUE<T> ts; T cur, temp; int isempty = 0, curcount;
+		PRIQUE<T,int> ts; //优先队列
+		T cur, temp;
 		//由于有多个起点 从终点往起点找
 		cur = maze.end;
-		checkandmark(cur, -1);
+		checkandmark(cur, -1);//目的是使cur计数为0
 		ts.push(cur, 0);
-		while (1) {
-			cur = ts.pop(&isempty);
-			if (isempty) break;
-			curcount = calcurcount(cur);
+		while (!ts.isempty()) {
+			cur = ts.pop();
+			if (isstart(cur)) {
+				issolved = 1;
+				return getcount(cur);
+			}
 			for (int i = 0; i < 4; i++) {
 				temp = around(i, cur);
-				if (checkandmark(temp, curcount)) {
-					if (isstart(temp)) {
-						issolved = 1;
-						return curcount + 1;
-					}
-					ts.push(temp, curcount);
-				};
+				if (checkandmark(temp, getcount(cur)))
+					ts.push(temp, getcount(temp));
 			};
 		};
 		return 0;
